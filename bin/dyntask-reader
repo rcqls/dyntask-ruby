@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'trollop'
+require 'pathname'
+require 'dyntask/task_mngr'
+
+VERSION='0.1.0'
+
+options = Trollop::options do
+  version "dyntask-reader version #{VERSION}"
+  banner <<-EOS
+dyntask-reader executes the dynamic task file.
+Usage:
+   dyntask-reader '<dyntask file>'
+Options:
+EOS
+
+end
+
+Trollop::die Trollop::educate if(ARGV.size == 0)
+
+filename=Pathname.new(ARGV[-1]).realpath.to_s
+
+p filename
+task_mngr=DynTask::TaskMngr.new
+task_mngr.read_tasks(filename)

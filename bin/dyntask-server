@@ -1,0 +1,84 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'filewatcher'
+require 'trollop'
+require 'pathname'
+require 'thread'
+require 'dyntask/task_mngr'
+
+options = Trollop::options do
+  version "dyntask-server based on filewatcher, version #{FileWatcher.VERSION} by Thomas Flemming 2015"
+  banner <<-EOS
+dyntask-server scans the filesystem and executes shell commands when files changes.
+Usage:
+   dyntask-server [--restart] '<filetype or command>'
+Options:
+EOS
+
+  opt :dontwait, "Do not wait for filesystem updates before running", :short => 'd', :type => :boolean, :default => false
+  opt :restart, "Restart process when filesystem is updated", :short => 'r', :type => :boolean, :default => false
+  opt :list, "Print name of files being watched"
+  opt :interval, "Interval to scan filesystem.", :short => 'i', :type => :float, :default => 0.5
+  opt :spinner, "Show an ascii spinner", :short => 's', :type => :boolean, :default => false
+end
+
+Trollop::die Trollop::educate if(ARGV.size == 0)
+
+files = []
+ARGV[0...-1].each do |a|
+  files << a
+end
+
+if(ARGV.length == 1)
+  files << ARGV[0]
+end
+
+# option or 
+dyntask_root=File.join(ENV["HOME"],"dyndocker")
+
+files.map!{|file| File.join(dyntask_root,"**/*" +DynTask::TaskMngr::TASK_EXT+file) if ["pdflatex","pandoc","png"].include? file}.compact!
+
+def restart(child_pid, env, cmd)
+  Process.kill(9,child_pid)
+  Process.wait(child_pid)
+rescue Errno::ESRCH
+  # already killed
+ensure
+  child_pid = Process.spawn({}, cmd)
+end
+
+if(options[:restart])
+  rd, wr = IO.pipe
+  child_pid = nil
+end
+
+begin
+  ##p files
+  fw = FileWatcher.new(files, options[:list], options[:dontwait], options[:spinner])
+  task_mngr=DynTask::TaskMngr.new
+  fw.watch(options[:interval]) do |filename, event| 
+    cmd=nil
+    if([:changed,:new].include? event)
+      path = Pathname.new(filename).realpath.to_s
+      cmd = "dyntask-reader "+path
+
+      if(options[:restart])
+        if(child_pid == nil)
+          child_pid = Process.spawn({}, cmd)
+        else
+          child_id = restart(child_pid, {}, cmd)
+        end
+      else
+        begin
+          p "cmd: <#{cmd}>"
+          pid = Process.spawn({}, cmd)
+          Process.wait()
+        rescue SystemExit, Interrupt
+          exit(0)
+        end
+      end
+    end
+  end
+rescue SystemExit, Interrupt
+  fw.finalize
+end

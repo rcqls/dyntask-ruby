@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'trollop'
+require 'pathname'
+require 'dyntask/task_mngr'
+
+VERSION='0.1.0'
+
+options = Trollop::options do
+  version "dyntask-writer version #{VERSION}"
+  banner <<-EOS
+dyntask-writer creates a dynamic task file.
+Usage:
+   dyntask-writer '<dyntask file>' ['<dyntask file2>' ...]
+Options:
+EOS
+
+end
+
+Trollop::die Trollop::educate if(ARGV.size == 0)
+task_mngr=DynTask::TaskMngr.new
+tasks=[]
+task_basename=Pathname.new(ARGV[0]).realpath.to_s
+cmds=[]
+ARGV[1..-1].each do |task|
+	filename,cmd,*opts=task.split(",")
+	cmds << cmd
+	options={}
+	opts.each{|o|
+		key,value=o.split("=")
+		options[key.to_sym]=Object.class_eval(value)
+	}
+	filename=Pathname.new(File.join(".",filename)).realpath.to_s
+	task_mngr.add_task(filename,cmd.to_sym,options)
+end
+ 
+task_mngr.save_tasks(task_basename)
