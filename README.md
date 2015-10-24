@@ -1,7 +1,3 @@
-# dyndoc document
+# DynTask
 
-TODO: DESCRIPTION
-
-## Install
-
-TODO
+Very basic system to manage chainable tasks
