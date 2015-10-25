@@ -14,6 +14,8 @@ module DynTask
 
   class TaskMngr
 
+    # TODO: to put outside to be extended by users!
+    TASKS=["pdflatex","pandoc","png","dyn","sh"]
     TASK_EXT=".task_"
 
     def initialize
@@ -92,6 +94,8 @@ module DynTask
         make_pdf
       when "pandoc"
         make_pandoc
+      when "png"
+        make_png
       end
       cd_old
         
@@ -117,7 +121,8 @@ module DynTask
     # make dyn
 
     def make_dyn
-      `dyn #{@task[:options]} #{@filename}`
+      p [:dyn_cmd,"dyn #{@task[:options][:default]} #{@filename}"]
+      `dyn #{@task[:options][:default]} #{@filename}`
     end
 
     # make pdf

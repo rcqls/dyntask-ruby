@@ -27,7 +27,7 @@ end
 Trollop::die Trollop::educate if(ARGV.size == 0)
 
 files = []
-ARGV[0...-1].each do |a|
+ARGV[0..-1].each do |a|
   files << a
 end
 
@@ -45,7 +45,9 @@ end
 
 puts "Root directory is #{dyntask_root}"
 
-files.map!{|file| File.join(dyntask_root,"**/*" +DynTask::TaskMngr::TASK_EXT+file) if ["pdflatex","pandoc","png"].include? file}.compact!
+files.map!{|file| File.join(dyntask_root,"**/*" +DynTask::TaskMngr::TASK_EXT+file) if DynTask::TaskMngr::TASKS.include? file}.compact!
+
+puts "Tasks watched: #{files}"
 
 def restart(child_pid, env, cmd)
   Process.kill(9,child_pid)

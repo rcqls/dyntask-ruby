@@ -19,7 +19,7 @@ end
 
 Trollop::die Trollop::educate if(ARGV.size == 0)
 
-filename=Pathname.new(ARGV[-1]).realpath.to_s
+filename=Pathname.new(ARGV[-1]).expand_path.to_s
 
 p filename
 task_mngr=DynTask::TaskMngr.new

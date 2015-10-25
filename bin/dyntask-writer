@@ -19,18 +19,23 @@ end
 
 Trollop::die Trollop::educate if(ARGV.size == 0)
 task_mngr=DynTask::TaskMngr.new
-tasks=[]
 task_basename=Pathname.new(ARGV[0]).expand_path.to_s
-cmds=[]
 ARGV[1..-1].each do |task|
 	filename,cmd,*opts=task.split(",")
-	cmds << cmd
-	options={}
-	opts.each{|o|
-		key,value=o.split("=")
-		options[key.to_sym]=Object.class_eval(value)
-	}
+	options=nil
+	if opts.empty?
+		options={:default => ""}
+	elsif opts.length==1 and !opts[0].include? "="
+		options={:default => opts[0]}
+	else
+		options={}
+		opts.each{|o|
+			key,value=o.split("=")
+			options[key.to_sym]=Object.class_eval(value)
+		}
+	end
 	filename=Pathname.new(filename).expand_path.to_s
+	p [:added,filename,cmd.to_sym,options]
 	task_mngr.add_task(filename,cmd.to_sym,options)
 end
  
