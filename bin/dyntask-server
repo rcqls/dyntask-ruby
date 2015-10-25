@@ -31,10 +31,6 @@ ARGV[0..-1].each do |a|
   files << a
 end
 
-if(ARGV.length == 1)
-  files << ARGV[0]
-end
-
 # root working directory 
 dyntask_root=options[:workdir].sub("~",ENV["HOME"])
 dyntask_root=File.read(File.join(ENV["HOME"],".dyntask_workdir")).strip.sub("~",ENV["HOME"]) if !File.exists? dyntask_root and File.exists? File.join(ENV["HOME"],".dyntask_workdir")
