@@ -20,7 +20,7 @@ end
 Trollop::die Trollop::educate if(ARGV.size == 0)
 task_mngr=DynTask::TaskMngr.new
 tasks=[]
-task_basename=Pathname.new(ARGV[0]).realpath.to_s
+task_basename=Pathname.new(ARGV[0]).expand_path.to_s
 cmds=[]
 ARGV[1..-1].each do |task|
 	filename,cmd,*opts=task.split(",")
@@ -30,7 +30,7 @@ ARGV[1..-1].each do |task|
 		key,value=o.split("=")
 		options[key.to_sym]=Object.class_eval(value)
 	}
-	filename=Pathname.new(File.join(".",filename)).realpath.to_s
+	filename=Pathname.new(filename).expand_path.to_s
 	task_mngr.add_task(filename,cmd.to_sym,options)
 end
  
