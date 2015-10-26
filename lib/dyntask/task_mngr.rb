@@ -8,7 +8,8 @@ module DynTask
     root=File.join(ENV["HOME"],".dyntask")
     {
       :root => root,
-      :etc => File.join(root,"etc")
+      :etc => File.join(root,"etc"),
+      :share => File.join(root,"share")
     }
   end
 
@@ -182,7 +183,7 @@ module DynTask
         format_output=$2.to_sym
         cfg_pandoc=nil
 
-        if File.exist? (cfg_pandoc_rbfile=File.join(DynTask.cfg_dir[:etc],"pandoc","config.rb"))
+        if File.exist? (cfg_pandoc_rbfile=File.join(DynTask.cfg_dir[:share],"pandoc","config.rb"))
           cfg_pandoc=Object.class_eval(File.read(cfg_pandoc_rbfile))
         end
 

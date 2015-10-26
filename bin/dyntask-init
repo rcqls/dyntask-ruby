@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'trollop'
+require 'pathname'
+require 'dyntask/task_mngr'
+
+VERSION='0.1.0'
+
+options = Trollop::options do
+  version "dyntask-init version #{VERSION}"
+  banner <<-EOS
+dyntask-init executes the dynamic task file.
+Usage:
+   dyntask-reader '<dyntask file>'
+Options:
+EOS
+	opt :default, "", :short => 'd', :type => :string, :default => ""
+  	opt :workdir, "Set default working directory", :short => 'w', :type => :string, :default => ""
+end
+
+Trollop::die Trollop::educate if(ARGV.size > 0)
+
+if options[:default] != ""
+	dyntask_default_tasks=options[:default].split(",").map{|o| o.strip}.join(",")
+	require 'fileutils'
+	FileUtils.mkdir_p DynTask.cfg_dir[:etc]
+	File.open(File.join(DynTask.cfg_dir[:etc],"default_tasks"),"w") do |f|
+		f << dyntask_default_tasks
+	end
+	puts "#{File.join(DynTask.cfg_dir[:etc],"default_tasks")} contains #{dyntask_default_tasks}"
+end
+
+if options[:workdir] != ""
+	dyntask_workdir=options[:workdir].sub("~",ENV["HOME"])
+	require 'fileutils'
+	FileUtils.mkdir_p DynTask.cfg_dir[:etc]
+	File.open(File.join(DynTask.cfg_dir[:etc],"workdir"),"w") do |f|
+		f << dyntask_workdir
+	end
+	puts "#{File.join(DynTask.cfg_dir[:etc],"workdir")} contains #{dyntask_workdir}"
+end

@@ -1,0 +1,134 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'filewatcher'
+require 'trollop'
+require 'pathname'
+require 'thread'
+require 'dyntask/task_mngr'
+require 'dante'
+
+
+$dynTask={}
+
+$dynTask[:options] = Trollop::options do
+  version "dyntask-server based on filewatcher, version #{FileWatcher.VERSION} by Thomas Flemming 2015"
+  banner <<-EOS
+dyntask-server scans the filesystem and executes shell commands when files changes.
+Usage:
+  dyntask-server [--restart] '<command type>'
+Comment: 
+  when file ~/.dyntask_workdir exists and contains a valid directory name, this becomes the working directory to watch unless -w option is provided at command line.
+Options:
+EOS
+  opt :workdir, "Working directory",:short => 'w', :type => :string, :default => "~"
+  opt :dontwait, "Do not wait for filesystem updates before running", :short => 'd', :type => :boolean, :default => false
+  opt :restart, "Restart process when filesystem is updated", :short => 'r', :type => :boolean, :default => false
+  opt :list, "Print name of files being watched"
+  opt :interval, "Interval to scan filesystem.", :short => 'i', :type => :float, :default => 0.5
+  opt :spinner, "Show an ascii spinner", :short => 's', :type => :boolean, :default => false
+end
+
+Trollop::die Trollop::educate if(ARGV.size == 0)
+
+
+$dynTask[:root] = File.join(ENV["HOME"],".dyntask")
+
+$dynTask[:pid_path]=File.join($dynTask[:root],"etc","pids",'dyntask.pid')
+$dynTask[:log_path]=File.join($dynTask[:root],"etc","logs",'dyntask.log')
+require 'fileutils'
+FileUtils.mkdir_p File.dirname($dynTask[:pid_path])
+FileUtils.mkdir_p File.dirname($dynTask[:log_path])
+
+$dynTask[:files] = []
+
+ARGV[0...-1].each do |a|
+  $dynTask[:files] << a
+end
+
+# root working directory 
+dyntask_root=$dynTask[:options][:workdir].sub("~",ENV["HOME"])
+dyntask_root=File.read(File.join(ENV["HOME"],".dyntask_workdir")).strip.sub("~",ENV["HOME"]) if !File.exists? dyntask_root and File.exists? File.join(ENV["HOME"],".dyntask_workdir")
+unless File.exists? dyntask_root
+  puts "Stop: #{dyntask_root} is not a directory!"
+  exit
+end
+
+puts "Root directory is #{dyntask_root}"
+
+$dynTask[:files].map!{|file| File.join(dyntask_root,"**/*" +DynTask::TaskMngr::TASK_EXT+file) if DynTask::TaskMngr::TASKS.include? file}.compact!
+
+puts "Tasks watched: #{$dynTask[:files]}"
+
+
+if($dynTask[:options][:restart])
+  rd, wr = IO.pipe
+  $dynTask[:child_pid] = nil
+end
+
+
+module DynTask
+
+  def self.restart(child_pid, env, cmd)
+    Process.kill(9,child_pid)
+    Process.wait(child_pid)
+  rescue Errno::ESRCH
+    # already killed
+  ensure
+    child_pid = Process.spawn({}, cmd)
+  end
+
+
+  def self.start
+
+    begin
+      ##p $dynTask[:files]
+      fw = FileWatcher.new($dynTask[:files], $dynTask[:options][:list], $dynTask[:options][:dontwait], $dynTask[:options][:spinner])
+      task_mngr=DynTask::TaskMngr.new
+      fw.watch($dynTask[:options][:interval]) do |filename, event| 
+        cmd=nil
+        if([:changed,:new].include? event)
+          path = Pathname.new(filename).realpath.to_s
+          cmd = "dyntask-reader "+path
+
+          if($dynTask[:options][:restart])
+            if($dynTask[:child_pid == nil])
+              $dynTask[:child_pid] = Process.spawn({}, cmd)
+            else
+              $dynTask[:child_id] = DynTask.process_restart($dynTask[:child_pid], {}, cmd)
+            end
+          else
+            begin
+              p "cmd: <#{cmd}>"
+              pid = Process.spawn({}, cmd)
+              Process.wait()
+            rescue SystemExit, Interrupt
+              exit(0)
+            end
+          end
+        end
+      end
+    rescue SystemExit, Interrupt
+      fw.finalize
+    end
+  end
+
+end
+
+p ARGV[-1]
+case ARGV[-1]
+when "start"
+  # Set default port
+  Dante::Runner.new('dynTask').execute(:daemonize=> true, :pid_path => $dynTask[:pid_path],:log_path=>$dynTask[:log_path]) {|opts|
+    DynTask.start 
+  }
+when "status"
+  puts "dyntask-server is "+((File.exists? $dynTask[:pid_path]) ? "running" : "not running")+"!"
+when "restart"
+  Dante::Runner.new('dynTask').execute(:daemonize => true, :restart => true,  :pid_path => $dynTask[:pid_path],:log_path=>$dynTask[:log_path]) {|opts|
+    DynTask.start 
+  }
+when "stop"
+  Dante::Runner.new('dynTask').execute(:kill=> true, :pid_path => $dynTask[:pid_path],:log_path=>$dynTask[:log_path])
+else
+  DynTask.start
+end

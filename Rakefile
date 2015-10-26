@@ -18,7 +18,7 @@ spec = Gem::Specification.new do |s|
     s.require_path = 'lib'
     s.files = PKG_FILES.to_a
     s.bindir = "bin"
-    s.executables = ["dyntask-server","dyntask-reader","dyntask-writer"]
+    s.executables = ["dyntask-server","dyntask-reader","dyntask-writer","dyntask-init"]
     s.description = <<-EOF
   Managing dyndoc tasks.
   EOF

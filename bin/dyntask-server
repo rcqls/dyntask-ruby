@@ -16,7 +16,7 @@ Comment:
   when file ~/.dyntask_workdir exists and contains a valid directory name, this becomes the working directory to watch unless -w option is provided at command line.
 Options:
 EOS
-  opt :workdir, "Working directory",:short => 'w', :type => :string, :default => "~"
+  opt :workdir, "Working directory",:short => 'w', :type => :string, :default => ""
   opt :dontwait, "Do not wait for filesystem updates before running", :short => 'd', :type => :boolean, :default => false
   opt :restart, "Restart process when filesystem is updated", :short => 'r', :type => :boolean, :default => false
   opt :list, "Print name of files being watched"
@@ -31,15 +31,39 @@ ARGV[0..-1].each do |a|
   files << a
 end
 
-# root working directory 
-dyntask_root=options[:workdir].sub("~",ENV["HOME"])
-dyntask_root=File.read(File.join(ENV["HOME"],".dyntask_workdir")).strip.sub("~",ENV["HOME"]) if !File.exists? dyntask_root and File.exists? File.join(ENV["HOME"],".dyntask_workdir")
+
+# root working directory
+dyntask_root=nil
+if options[:workdir] != "" 
+  dyntask_root=options[:workdir].sub("~",ENV["HOME"])
+else
+  etc_work_dir=File.join(DynTask.cfg_dir[:etc],"workdir")
+  dyntask_root=File.read(etc_work_dir).strip.sub("~",ENV["HOME"]) if File.exists? etc_work_dir
+end
+
+unless dyntask_root
+  puts "Working directory unset!\n Use: option -w with dyntask-server\n  or\n Launch: dyntask-init -w <WORKING DIRECTORY> to set default working directory!"
+  exit
+end
 unless File.exists? dyntask_root
   puts "Stop: #{dyntask_root} is not a directory!"
   exit
 end
 
 puts "Root directory is #{dyntask_root}"
+etc_default_tasks=File.join(DynTask.cfg_dir[:etc],"default_tasks")
+if files.include? "default"
+  files -= ["default"]
+  files += File.read(etc_default_tasks).strip.split(",") if File.exists? etc_default_tasks
+end
+
+files.uniq!
+
+if files.empty?
+  puts "Stop: no tasks to serve!\n Launch: dyntask-init -d <LIST OF COMMA SEPARATED TASKS> to set default working directory!"
+  exit
+end
+
 
 files.map!{|file| File.join(dyntask_root,"**/*" +DynTask::TaskMngr::TASK_EXT+file) if DynTask::TaskMngr::TASKS.include? file}.compact!
 
