@@ -47,6 +47,7 @@ module DynTask
 
     ## maybe to maintain only one task, remove current task when the new one is created
     def read_tasks(task_filename)
+      @task_filename=task_filename
       @tasks=Object.class_eval(File.read(task_filename))
       ##p @tasks
       if @tasks.length>=1
@@ -75,6 +76,8 @@ module DynTask
     end
 
     def make_task
+
+      @task[:filename]=File.join(File.dirname(@task_filename),@task[:filename][1..-1]) if @task[:filename] =~ /^\*/
 
       if @task[:filename]
         @dirname=File.dirname(@task[:filename])

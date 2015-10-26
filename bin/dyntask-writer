@@ -34,7 +34,7 @@ ARGV[1..-1].each do |task|
 			options[key.to_sym]=Object.class_eval(value)
 		}
 	end
-	filename=Pathname.new(filename).expand_path.to_s
+	filename=Pathname.new(filename).expand_path.to_s unless filename =~ /^\%/
 	p [:added,filename,cmd.to_sym,options]
 	task_mngr.add_task(filename,cmd.to_sym,options)
 end
