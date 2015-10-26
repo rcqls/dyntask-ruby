@@ -77,7 +77,9 @@ module DynTask
 
     def make_task
 
-      @task[:filename]=File.join(File.dirname(@task_filename),@task[:filename][1..-1]) if @task[:filename] =~ /^\*/
+      @task[:filename]=File.join(File.dirname(@task_filename),@task[:filename][1..-1]) if @task[:filename] =~ /^\%/
+
+      ##p @task[:filename]
 
       if @task[:filename]
         @dirname=File.dirname(@task[:filename])
