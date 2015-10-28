@@ -9,7 +9,9 @@ module DynTask
     {
       :root => root,
       :etc => File.join(root,"etc"),
-      :share => File.join(root,"share")
+      :share => File.join(root,"share"),
+      :tasks => File.join(root,"share","tasks"),
+      :plugins => File.join(root,"share","plugins")
     }
   end
 
@@ -75,6 +77,10 @@ module DynTask
       end
     end
 
+    def load_user_task_plugins
+      Dir[File.join(DynTask.cfg_dir[:plugins],"*.rb")].each {|lib| require lib} if File.exists? DynTask.cfg_dir[:plugins] 
+    end
+
     def make_task
 
       @task[:filename]=File.join(File.dirname(@task_filename),@task[:filename][1..-1]) if @task[:filename] =~ /^\%/
@@ -91,18 +97,22 @@ module DynTask
       ##p [@dirname,@extname,@basename]
 
       cd_new
-      case @task[:cmd].to_s
-      when "sh"
-        make_sh
-      when "dyn"
-        make_dyn
-      when "pdflatex"
-        make_pdf
-      when "pandoc"
-        make_pandoc
-      when "png"
-        make_png
-      end
+
+      method("make_"+@task[:cmd].to_s).call
+
+      # case @task[:cmd].to_s
+      # when "sh"
+      #   make_sh
+      # when "dyn"
+      #   make_dyn
+      # when "pdflatex"
+      #   make_pdf
+      # when "pandoc"
+      #   make_pandoc
+      # when "png"
+      #   make_png
+      # end
+
       cd_old
         
     end
@@ -136,6 +146,14 @@ module DynTask
     def make_pdf
       nb = @task[:options][:nb] || 1
       echo_mode=@task[:options][:echo] || false
+      wait_lag=@task[:options][:wait_lag] || 0.5
+      wait_nb=@task[:options][:wait_nb] || 20
+      i=0
+      while !File.exists? @basename+".tex" and i < wait_nb
+        p "wait: #{i}"
+        sleep wait_lag
+        i+=1
+      end 
       nb.times {|i| make_pdflatex(echo_mode) }
     end
 
