@@ -15,6 +15,17 @@ module DynTask
     }
   end
 
+  def self.wait_for_file(filename,wait_loop_number = 20, wait_loop_time = 0.5,verbose=false)
+    cpt=0
+    while !File.exists? filename and cpt < wait_loop_number
+      p "wait: #{cpt}"
+      sleep wait_loop_time
+      cpt+=1
+    end
+    ## return succeed
+    File.exists? filename
+  end
+
   class TaskMngr
 
     # TODO: to put outside to be extended by users!
@@ -146,15 +157,22 @@ module DynTask
     def make_pdf
       nb = @task[:options][:nb] || 1
       echo_mode=@task[:options][:echo] || false
-      wait_lag=@task[:options][:wait_lag] || 0.5
-      wait_nb=@task[:options][:wait_nb] || 20
-      i=0
-      while !File.exists? @basename+".tex" and i < wait_nb
-        p "wait: #{i}"
-        sleep wait_lag
-        i+=1
-      end 
-      nb.times {|i| make_pdflatex(echo_mode) }
+      ok=true
+      if @task[:options][:content]
+        file.open(@basename+".tex","w") do |f|
+          f << @task[:options][:content]
+        end
+      else
+        ## Just in case of synchronisation delay!
+        wait_time=@task[:options][:wait_loop_time] || 0.5
+        wait_nb=@task[:options][:wait_loop_nb] || 20
+        ok=DynTask.wait_for_file(@basename+".tex",wait_nb,wait_time)
+      end
+      if ok
+        nb.times {|i| make_pdflatex(echo_mode) }
+      else
+        puts "Warning: no way to apply pdflatex since #{(@basename+'.tex'} does not exist!"
+      end
     end
 
     # make pdflatex
@@ -277,7 +295,7 @@ module DynTask
 
     # make ttm
     
-    def self.make_ttm
+    def make_ttm
 #puts "make_ttm:begin"
       DynTask::Converter.ttm(File.read(@task[:filename]))
     end
