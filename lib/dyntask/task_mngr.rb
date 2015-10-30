@@ -4,6 +4,24 @@ require "fileutils"
 
 module DynTask
 
+  @@task_mngr=nil
+
+  def self.add_task(task)
+    @@task_mngr ||= DynTask::TaskMngr.new
+    @@task_mngr.add_task(task)
+  end
+
+  def self.save_tasks(task_basename)
+    return unless @@task_mngr
+    @@task_mngr.save_tasks(task_basename)
+  end
+
+  def self.read_tasks(task_filename)
+    @@task_mngr ||= DynTask::TaskMngr.new
+    @@task_mngr.load_user_task_plugins
+    @@task_mngr.read_tasks(task_filename)
+  end
+
   def self.cfg_dir
     root=File.join(ENV["HOME"],".dyntask")
     {
@@ -40,10 +58,14 @@ module DynTask
       @tasks=[]
     end
 
+    ## Comment on writing task:
+    ## task is just a ruby hash containing at least :cmd key to describe the
+    ## command type. Other keys are for completing the task related to command :cmd
+    ## However, :source and :target are recommanded keynames for describing source and target filename
 
     ## possibly add condition to check before applying command+options
-    def add_task(filename,cmd,options)
-      @tasks << {filename: filename, cmd: cmd, options: options}
+    def add_task(task)
+      @tasks << task
     end
 
     def save_tasks(task_basename)
@@ -61,7 +83,8 @@ module DynTask
     ## maybe to maintain only one task, remove current task when the new one is created
     def read_tasks(task_filename)
       @task_filename=task_filename
-      @tasks=Object.class_eval(File.read(task_filename))
+      @workdir=File.dirname(@task_filename)
+      @tasks=Object.class_eval(File.read(@task_filename))
       ##p @tasks
       if @tasks.length>=1
         @task=@tasks.shift #first task to deal with
@@ -92,21 +115,36 @@ module DynTask
       Dir[File.join(DynTask.cfg_dir[:plugins],"*.rb")].each {|lib| require lib} if File.exists? DynTask.cfg_dir[:plugins] 
     end
 
+    def info_file(filename)
+      return {} unless filename
+      filename=File.join(@workdir,filename[1..-1]) if filename =~ /^\%/
+
+      ##p filename
+
+      res = {
+        dirname: File.dirname(filename),
+        extname: File.extname(filename),
+        basename: File.basename(filename,".*")
+      }
+      res[:filename]=res[:basename]+res[:extname]
+      res
+    end
+
     def make_task
 
-      @task[:filename]=File.join(File.dirname(@task_filename),@task[:filename][1..-1]) if @task[:filename] =~ /^\%/
+      if @task[:source]
+        #p [:info,@task[:source]]
+        @source=info_file(@task[:source])
+        #p [:source,@source]
+        @basename=@source[:basename]
+        @extname=@source[:extname]
+        @dirname=@source[:dirname]
+        @filename=@source[:filename]
+      end 
 
-      ##p @task[:filename]
+      @target=info_file(@task[:target]) if @task[:target]
 
-      if @task[:filename]
-        @dirname=File.dirname(@task[:filename])
-        @extname=File.extname(@task[:filename])
-        @basename=File.basename(@task[:filename],".*")
-        @filename=@basename+@extname
-      end
-
-      ##p [@dirname,@extname,@basename]
-
+       
       cd_new
 
       method("make_"+@task[:cmd].to_s).call
@@ -130,7 +168,7 @@ module DynTask
 
     def cd_new
       @curdir=Dir.pwd
-      Dir.chdir(@dirname)
+      Dir.chdir(@workdir)
     end
 
     def cd_old
@@ -140,38 +178,39 @@ module DynTask
     # make sh
 
     def make_sh
-      shell_opts=@task[:options][:shell] || ""
-      script_opts=@task[:options][:script] || ""
-      `sh #{shell_opts} #{@filename} #{script_opts}`
+      shell_opts=@task[:shell_opts] || ""
+      script_opts=@task[:script_opts] || ""
+      `sh #{shell_opts} #{source[:filename]} #{script_opts}`
     end
 
     # make dyn
 
     def make_dyn
-      p [:dyn_cmd,"dyn #{@task[:options][:default]} #{@filename}"]
-      `dyn #{@task[:options][:default]} #{@filename}`
+      opts = @task[:options] || ""
+      p [:dyn_cmd,"dyn #{opts} #{@filename}"]
+      `dyn #{opts} #{@filename}`
     end
 
     # make pdf
 
     def make_pdf
-      nb = @task[:options][:nb] || 1
-      echo_mode=@task[:options][:echo] || false
+      nb_pass = @task[:nb_pass] || 1
+      echo_mode=@task[:echo] || false
       ok=true
-      if @task[:options][:content]
+      if @task[:content]
         file.open(@basename+".tex","w") do |f|
-          f << @task[:options][:content]
+          f << @task[:content]
         end
       else
         ## Just in case of synchronisation delay!
-        wait_time=@task[:options][:wait_loop_time] || 0.5
-        wait_nb=@task[:options][:wait_loop_nb] || 20
+        wait_time=@task[:wait_loop_time] || 0.5
+        wait_nb=@task[:wait_loop_nb] || 20
         ok=DynTask.wait_for_file(@basename+".tex",wait_nb,wait_time)
       end
       if ok
-        nb.times {|i| make_pdflatex(echo_mode) }
+        nb_pass.times {|i| make_pdflatex(echo_mode) }
       else
-        puts "Warning: no way to apply pdflatex since #{(@basename+'.tex'} does not exist!"
+        puts "Warning: no way to apply pdflatex since #{@basename+'.tex'} does not exist!"
       end
     end
 

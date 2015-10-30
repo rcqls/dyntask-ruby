@@ -1,12 +1,7 @@
 [
 	{
-		:filename=>"%basename%.dyn", 
-		:cmd=>:dyn, 
-		:options=>{:default=>"-cas"}
-	}, 
-	{
-		:filename=>"%basename%.tex",
-		:cmd=>:pdflatex,
-		:options=>{:default=>""}
+		:source=>"%basename%.dyn", 
+		:cmd=> "dyn", 
+		:options=>"-caspdf"
 	}
 ]

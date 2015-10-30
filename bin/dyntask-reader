@@ -2,7 +2,7 @@
 require 'rubygems'
 require 'trollop'
 require 'pathname'
-require 'dyntask/task_mngr'
+require 'dyntask'
 
 VERSION='0.1.0'
 
@@ -22,6 +22,4 @@ Trollop::die Trollop::educate if(ARGV.size == 0)
 filename=Pathname.new(ARGV[-1]).expand_path.to_s
 
 #p filename
-task_mngr=DynTask::TaskMngr.new
-task_mngr.load_user_task_plugins
-task_mngr.read_tasks(filename)
+DynTask.read_tasks(filename)

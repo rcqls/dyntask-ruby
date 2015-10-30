@@ -4,7 +4,7 @@ require 'filewatcher'
 require 'trollop'
 require 'pathname'
 require 'thread'
-require 'dyntask/task_mngr'
+require 'dyntask'
 
 options = Trollop::options do
   version "dyntask-server based on filewatcher, version #{FileWatcher.VERSION} by Thomas Flemming 2015"

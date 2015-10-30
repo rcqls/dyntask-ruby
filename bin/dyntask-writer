@@ -2,7 +2,7 @@
 require 'rubygems'
 require 'trollop'
 require 'pathname'
-require 'dyntask/task_mngr'
+require 'dyntask'
 
 VERSION='0.1.0'
 
@@ -18,25 +18,26 @@ EOS
 end
 
 Trollop::die Trollop::educate if(ARGV.size == 0)
-task_mngr=DynTask::TaskMngr.new
 task_basename=Pathname.new(ARGV[0]).expand_path.to_s
 ARGV[1..-1].each do |task|
-	filename,cmd,*opts=task.split(",")
-	options=nil
-	if opts.empty?
-		options={:default => ""}
-	elsif opts.length==1 and !opts[0].include? "="
-		options={:default => opts[0]}
-	else
-		options={}
-		opts.each{|o|
-			key,value=o.split("=")
-			options[key.to_sym]=Object.class_eval(value)
-		}
-	end
-	filename=Pathname.new(filename).expand_path.to_s unless filename =~ /^\%/
-	p [:added,filename,cmd.to_sym,options]
-	task_mngr.add_task(filename,cmd.to_sym,options)
+	cmd,*opts=task.split(",")
+	task2={cmd: cmd}
+	opts.each{|o|
+		key,*value=o.split("=")
+		value=value.join("=")
+		p [:value,value]
+		
+		begin
+			task2[key.to_sym]=Object.class_eval(value)
+		rescue Exception
+			task2[key.to_sym]=value
+		end
+	}
+	[:source,:target].each {|t| 
+		task2[t]=Pathname.new(task2[t]).expand_path.to_s if task2[t] and !(task2[t] =~ /^\%/) 
+	}
+	p [:added,task2]
+	DynTask.add_task(task2)
 end
  
-task_mngr.save_tasks(task_basename)
+DynTask.save_tasks(task_basename)
