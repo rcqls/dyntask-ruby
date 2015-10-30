@@ -193,12 +193,13 @@ module DynTask
 
     # make pdf
 
-    def make_pdf
+    def make_pdflatex
+      #p [:task,@task]
       nb_pass = @task[:nb_pass] || 1
       echo_mode=@task[:echo] || false
       ok=true
       if @task[:content]
-        file.open(@basename+".tex","w") do |f|
+        File.open(@basename+".tex","w") do |f|
           f << @task[:content]
         end
       else
@@ -208,7 +209,7 @@ module DynTask
         ok=DynTask.wait_for_file(@basename+".tex",wait_nb,wait_time)
       end
       if ok
-        nb_pass.times {|i| make_pdflatex(echo_mode) }
+        nb_pass.times {|i| make_pdflatex_pass(echo_mode) }
       else
         puts "Warning: no way to apply pdflatex since #{@basename+'.tex'} does not exist!"
       end
@@ -216,7 +217,7 @@ module DynTask
 
     # make pdflatex
 
-    def make_pdflatex(echo_mode=false)
+    def make_pdflatex_pass(echo_mode=false)
       unless File.exists? @basename+".tex"
         msg="No pdflatex #{@basename} in #{@dirname} since file does not exist!"
         print "\n==> "+msg
