@@ -11,31 +11,43 @@ options = Trollop::options do
   banner <<-EOS
 dyntask-init executes the dynamic task file.
 Usage:
-   dyntask-reader '<dyntask file>'
+   dyntask-init [--force] '<name>' '<working_dir>:<list_of_comma_separated_tasks>' ['<working_dir_2>:<list_of_comma_separated_tasks_2>' ...]
+   dyntask-init '<name>'
+   dyntask-init --force --rm '<name>'
 Options:
 EOS
-	opt :default, "", :short => 'd', :type => :string, :default => ""
-  	opt :workdir, "Set default working directory", :short => 'w', :type => :string, :default => ""
+  opt :force, "force is used to rewrite on an existing file", :short => 'f', :type => :boolean, :default => false
+  opt :rm, "remove an existing file", :type => :boolean, :default => false
 end
 
-Trollop::die Trollop::educate if(ARGV.size > 0)
-
-if options[:default] != ""
-	dyntask_default_tasks=options[:default].split(",").map{|o| o.strip}.join(",")
-	require 'fileutils'
-	FileUtils.mkdir_p DynTask.cfg_dir[:etc]
-	File.open(File.join(DynTask.cfg_dir[:etc],"default_tasks"),"w") do |f|
-		f << dyntask_default_tasks
+Trollop::die Trollop::educate if(ARGV.size == 0)
+	
+if ARGV.size == 1 and ARGV[0]=="ls"
+	Dir[File.join(DynTask.cfg_dir[:etc],"tasks","**/*")].each do |f|
+		puts "#{File.basename(f)}: #{File.read(f)}"
 	end
-	puts "#{File.join(DynTask.cfg_dir[:etc],"default_tasks")} contains #{dyntask_default_tasks}"
+	exit
 end
 
-if options[:workdir] != ""
-	dyntask_workdir=options[:workdir].sub("~",ENV["HOME"])
-	require 'fileutils'
-	FileUtils.mkdir_p DynTask.cfg_dir[:etc]
-	File.open(File.join(DynTask.cfg_dir[:etc],"workdir"),"w") do |f|
-		f << dyntask_workdir
+etc_tasks=File.join(DynTask.cfg_dir[:etc],"tasks",ARGV[0])
+
+if ARGV.size==1
+	if options[:rm] and options[:force]
+		require 'fileutils'
+		FileUtils.rm etc_tasks
 	end
-	puts "#{File.join(DynTask.cfg_dir[:etc],"workdir")} contains #{dyntask_workdir}"
+else
+	if File.exists? etc_tasks and !options[:force]
+		puts "Error: file #{etc_tasks} already exist. Use --force or -f to modify this file!"
+		exit
+	else
+		require 'fileutils'
+		FileUtils.mkdir_p File.dirname(etc_tasks)
+		dyntask_tasks=ARGV[1..-1].join(" ")
+		File.open(etc_tasks,"w") do |f|
+			f << dyntask_tasks
+		end
+	end
 end
+
+puts "#{etc_tasks} contains: #{File.read(etc_tasks)}" if File.exists? etc_tasks
