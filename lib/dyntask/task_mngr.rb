@@ -208,13 +208,12 @@ module DynTask
       #p [:task,@task]
       nb_pass = @task[:nb_pass] || 1
       echo_mode=@task[:echo] || false
-      ok=true
-      unless @task[:content]
-        ## Just in case of synchronisation delay!
-        wait_time=@task[:wait_loop_time] || 0.5
-        wait_nb=@task[:wait_loop_nb] || 20
-        ok=DynTask.wait_for_file(@basename+".tex",wait_nb,wait_time)
-      end
+
+      ## Just in case of synchronisation delay!
+      wait_time=@task[:wait_loop_time] || 0.5
+      wait_nb=@task[:wait_loop_nb] || 20
+      ok=DynTask.wait_for_file(@basename+".tex",wait_nb,wait_time)
+      
       if ok
         nb_pass.times {|i| make_pdflatex_pass(echo_mode) }
       else
