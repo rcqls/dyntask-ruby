@@ -144,19 +144,18 @@ module DynTask
       end 
 
       @target=info_file(@task[:target]) if @task[:target]
+       
+      cd_new
 
       ## This is a rule, if a @task contains both :source and :content
       ## then save the file @task[:source] with this content @task[:content]
       ## This is useful when delegating a next task in some dropbox-like environment: task and source are synchronized!
       if @task[:content] and @source[:filename]
-        #
-        p [:content,@source[:filename]]
+        #p [:content,@source[:filename]]
         File.open(@source[:filename],"w") do |f|
           f << @task[:content]
         end
       end
-       
-      cd_new
 
       method("make_"+@task[:cmd].to_s).call
 
@@ -213,7 +212,7 @@ module DynTask
       wait_time=@task[:wait_loop_time] || 0.5
       wait_nb=@task[:wait_loop_nb] || 20
       ok=DynTask.wait_for_file(@basename+".tex",wait_nb,wait_time)
-      
+
       if ok
         nb_pass.times {|i| make_pdflatex_pass(echo_mode) }
       else
