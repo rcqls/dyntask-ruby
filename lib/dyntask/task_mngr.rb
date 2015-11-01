@@ -1,5 +1,6 @@
 # encoding: UTF-8
-require 'dyntask/software'
+require 'dyndoc-software'
+require 'dyndoc-converter'
 require "fileutils"
 
 module DynTask
@@ -119,7 +120,7 @@ module DynTask
       return {} unless filename
       filename=File.join(@workdir,filename[1..-1]) if filename =~ /^\%/
 
-      ##p filename
+      ##p [:info_file,filename]
 
       res = {
         dirname: File.dirname(filename),
@@ -144,6 +145,15 @@ module DynTask
 
       @target=info_file(@task[:target]) if @task[:target]
 
+      ## This is a rule, if a @task contains both :source and :content
+      ## then save the file @task[:source] with this content @task[:content]
+      ## This is useful when delegating a next task in some dropbox-like environment: task and source are synchronized!
+      if @task[:content] and @source[:filename]
+        #p [:content,@source[:filename]]
+        File.open(@source[:filename],"w") do |f|
+          f << @task[:content]
+        end
+      end
        
       cd_new
 
@@ -198,11 +208,7 @@ module DynTask
       nb_pass = @task[:nb_pass] || 1
       echo_mode=@task[:echo] || false
       ok=true
-      if @task[:content]
-        File.open(@basename+".tex","w") do |f|
-          f << @task[:content]
-        end
-      else
+      unless @task[:content]
         ## Just in case of synchronisation delay!
         wait_time=@task[:wait_loop_time] || 0.5
         wait_nb=@task[:wait_loop_nb] || 20
@@ -228,9 +234,9 @@ module DynTask
         ###$dyn_logger.write("ERROR pdflatex: "+msg+"\n") unless Dyndoc.cfg_dyn[:dyndoc_mode]==:normal
         return ""
       end
-      print "\n==> #{DynTask.pdflatex} #{@basename} in #{@dirname}"
+      print "\n==> #{Dyndoc.pdflatex} #{@basename} in #{@dirname}"
 
-      out=`#{DynTask.pdflatex} -halt-on-error -file-line-error -interaction=nonstopmode #{@basename}`
+      out=`#{Dyndoc.pdflatex} -halt-on-error -file-line-error -interaction=nonstopmode #{@basename}`
       out=out.b if RUBY_VERSION >= "1.9" #because out is not necessarily utf8 encoded  
       out=out.split("\n")
       puts out if echo_mode
@@ -307,11 +313,11 @@ module DynTask
       if pandoc_file_input
         opts << pandoc_file_input
         #p [:make_pandoc_input, opts.join(" ")]
-        Converter.pandoc(nil,opts.join(" "))
+        Dyndoc::Converter.pandoc(nil,opts.join(" "))
       else
         @content=File.read(@filename)
         #p [:make_pandoc_content, opts.join(" "),@content]
-        Converter.pandoc(@content,opts.join(" "))
+        Dyndoc::Converter.pandoc(@content,opts.join(" "))
       end
       ## @cfg[:created_docs] << @cfg[:pandoc_file_output]
     end
@@ -337,7 +343,7 @@ module DynTask
     
     def make_ttm
 #puts "make_ttm:begin"
-      DynTask::Converter.ttm(File.read(@task[:filename]))
+      Dyndoc::Converter.ttm(File.read(@task[:filename]))
     end
 
   end
