@@ -128,6 +128,7 @@ module DynTask
         basename: File.basename(filename,".*")
       }
       res[:filename]=res[:basename]+res[:extname]
+      res[:full_filename]=File.join(res[:dirname],res[:filename])
       res
     end
 
@@ -254,71 +255,58 @@ module DynTask
     # make pandoc
 
     def make_pandoc
-      mode=@task[:options][:mode]
-      
-      if @basename =~ /\_(md|tex)2(odt|docx|beamer|s5|dzslides|slideous|slidy|revealjs)$/ or (pandoc_mode=PANDOC_CMDS.include? mode)
-        #p [@basename,$1,$2,pandoc_mode]
-        if pandoc_mode
-          mode =~ /(md|tex)2(odt|docx|beamer|s5|dzslides|slideous|slidy|revealjs)$/
-        else
-          @basename = @basename[0..(@basename.length-$1.length-$2.length-3)] unless pandoc_mode
-        end
-        #p @basename
-         
-        format_doc=$1.to_sym
-        format_output=$2.to_sym
-        cfg_pandoc=nil
+      cfg_pandoc=nil
 
-        if File.exist? (cfg_pandoc_rbfile=File.join(DynTask.cfg_dir[:share],"pandoc","config.rb"))
-          cfg_pandoc=Object.class_eval(File.read(cfg_pandoc_rbfile))
-        end
+      if File.exist? (cfg_pandoc_rbfile=File.join(DynTask.cfg_dir[:share],"pandoc","config.rb"))
+        cfg_pandoc=Object.class_eval(File.read(cfg_pandoc_rbfile))
+      end
 
-        p [format_doc.to_s , format_output.to_s]
-        cmd_pandoc_options,pandoc_file_output,pandoc_file_input=[],"",nil
-        case format_doc.to_s + "2" + format_output.to_s
-        when "md2odt"
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2odt"] : []
-          pandoc_file_output=@basename+append_doc+".odt"
-        when "md2docx"
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2docx"] : ["-s","-S"]
-          pandoc_file_output=@basename+append_doc+".docx"
-        when "tex2docx"
-          pandoc_file_input=@filename
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["tex2docx"] : ["-s"]
-          pandoc_file_output=@basename+append_doc+".docx"
-        when "md2beamer"
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2beamer"] : ["-t","beamer"]
-          pandoc_file_output=@basename+append_doc+".pdf"
-        when "md2dzslides"
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2dzslides"] : ["-s","--mathml","-i","-t","dzslides"]
-          pandoc_file_output=@basename+append_doc+".html"
-        when "md2slidy"
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2slidy"] : ["-s","--webtex","-i","-t","slidy"]
-          pandoc_file_output=@basename+append_doc+".html"  
-        when "md2s5"
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2s5"] : ["-s","--self-contained","--webtex","-i","-t","s5"]
-          pandoc_file_output=@basename+append_doc+".html"
-        when "md2revealjs"
-          cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2revealjs"] : ["-s","--self-contained","--webtex","-i","-t","revealjs"]
-          pandoc_file_output=@basename+append_doc+".html"
-        when "md2slideous"
-          cmd_pandoc_options=["-s","--mathjax","-i","-t","slideous"]
-          pandoc_file_output=@basename+append_doc+".html"
-        end
+      format_doc,format_output=@task[:filter].split("2")
+      #p [format_doc.to_s , format_output.to_s]
+      append_doc= @task[:append_doc] || ""
+      cmd_pandoc_options,pandoc_file_output,pandoc_file_input=[],"",nil
+      case @task[:filter]
+      when "md2odt"
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2odt"] : []
+        pandoc_file_output=@basename+append_doc+".odt"
+      when "md2docx"
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2docx"] : ["-s","-S"]
+        pandoc_file_output=@basename+append_doc+".docx"
+      when "tex2docx"
+        pandoc_file_input=@filename
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["tex2docx"] : ["-s"]
+        pandoc_file_output=@basename+append_doc+".docx"
+      when "md2beamer"
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2beamer"] : ["-t","beamer"]
+        pandoc_file_output=@basename+append_doc+".pdf"
+      when "md2dzslides"
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2dzslides"] : ["-s","--mathml","-i","-t","dzslides"]
+        pandoc_file_output=@basename+append_doc+".html"
+      when "md2slidy"
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2slidy"] : ["-s","--webtex","-i","-t","slidy"]
+        pandoc_file_output=@basename+append_doc+".html"  
+      when "md2s5"
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2s5"] : ["-s","--self-contained","--webtex","-i","-t","s5"]
+        pandoc_file_output=@basename+append_doc+".html"
+      when "md2revealjs"
+        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2revealjs"] : ["-s","--self-contained","--webtex","-i","-t","revealjs"]
+        pandoc_file_output=@basename+append_doc+".html"
+      when "md2slideous"
+        cmd_pandoc_options=["-s","--mathjax","-i","-t","slideous"]
+        pandoc_file_output=@basename+append_doc+".html"
       end
      
       opts=cmd_pandoc_options+["-o",pandoc_file_output]
     
       if pandoc_file_input
         opts << pandoc_file_input
-        #p [:make_pandoc_input, opts.join(" ")]
         Dyndoc::Converter.pandoc(nil,opts.join(" "))
       else
-        @content=File.read(@filename)
+        @content=@task[:content]
         #p [:make_pandoc_content, opts.join(" "),@content]
         Dyndoc::Converter.pandoc(@content,opts.join(" "))
       end
-      ## @cfg[:created_docs] << @cfg[:pandoc_file_output]
+  
     end
 
 
