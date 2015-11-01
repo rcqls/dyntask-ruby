@@ -149,7 +149,8 @@ module DynTask
       ## then save the file @task[:source] with this content @task[:content]
       ## This is useful when delegating a next task in some dropbox-like environment: task and source are synchronized!
       if @task[:content] and @source[:filename]
-        #p [:content,@source[:filename]]
+        #
+        p [:content,@source[:filename]]
         File.open(@source[:filename],"w") do |f|
           f << @task[:content]
         end
