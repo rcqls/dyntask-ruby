@@ -3,6 +3,7 @@ require 'rubygems'
 require 'trollop'
 require 'pathname'
 require 'dyntask/task_mngr'
+require 'fileutils'
 
 VERSION='0.1.0'
 
@@ -21,7 +22,40 @@ EOS
 end
 
 Trollop::die Trollop::educate if(ARGV.size == 0)
-	
+
+if ARGV[0] == "pandoc-extra"
+	case ARGV[1]
+	when "ls"
+		if File.directory? DynTask.cfg_pandoc[:extra_dir]
+			puts `/usr/bin/env bash -c 'ls #{DynTask.cfg_pandoc[:extra_dir]}'`
+		end
+	when "dir"
+		if ARGV[2] and File.directory? ARGV[2]
+			File.open(DynTask.cfg_pandoc[:extra_etc],"w") do |f|
+				f << ARGV[2]
+			end
+		else
+			puts "Current pandoc extra installations are located at #{DynTask.cfg_pandoc[:extra_dir]}"
+		end
+	when "wget"
+		## Stuff!
+		p [:extra_dir,DynTask.cfg_pandoc[:extra_dir]]
+		FileUtils.mkdir_p DynTask.cfg_pandoc[:extra_dir]
+		curdir=Dir.pwd
+      	Dir.chdir DynTask.cfg_pandoc[:extra_dir]
+      	version="3.1.0"
+      	puts "Installing reveal-js-#{version}"
+      	system("/usr/bin/env bash -c 'wget -O revealjs.tgz https://github.com/hakimel/reveal.js/archive/#{version}.tar.gz && tar xzvf revealjs.tgz && rm revealjs.tgz'") 
+      	puts "Installing s5-11"
+      	system("/usr/bin/env bash -c 'wget -O s5.zip http://meyerweb.com/eric/tools/s5/v/1.1/s5-11.zip && mkdir -p s5-tmp && unzip -d s5-tmp s5.zip && mv s5-tmp/ui s5-ui && rm s5.zip && rm -fr s5-tmp'")
+      	Dir.chdir curdir
+
+	end
+	exit
+end
+
+
+
 if ARGV.size == 1 and ARGV[0]=="ls"
 	Dir[File.join(DynTask.cfg_dir[:etc],"tasks","**/*")].each do |f|
 		puts "#{File.basename(f)}: #{File.read(f)}"

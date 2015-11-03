@@ -1,0 +1,6 @@
+pandoc-extra management
+=======================
+
+1) Location of pandoc-extra directory containing extra installations of reveal-js, s5, ..., is read in ~/.dyntask/etc/pandoc_extra_dir file and accessed in dyntask-ruby gem via DynTask.cfg_dir[:pandoc_extra] (used, for example, inside ~/.dyntask/share/pandoc/config.rb)
+2) config.rb is located inside ~/.dyntask/share/pandoc directory to be easily saved in Github. The pandoc-extra contents is not at the same place to avoid to be located in Github. The command "dyndocker pandoc-extra" (for docker setting) and "dyntask-init --pandoc-extra" (nomal setting) is used to offer a scriptable way to get these extra installations of reveal-js and s5. 
+

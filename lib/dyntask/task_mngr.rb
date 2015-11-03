@@ -23,15 +23,31 @@ module DynTask
     @@task_mngr.read_tasks(task_filename)
   end
 
+  @@cfg_dir=nil
+
   def self.cfg_dir
+    return @@cfg_dir if @@cfg_dir
     root=File.join(ENV["HOME"],".dyntask")
-    {
+    @@cfg_dir={
       :root => root,
       :etc => File.join(root,"etc"),
       :share => File.join(root,"share"),
       :tasks => File.join(root,"share","tasks"),
       :plugins => File.join(root,"share","plugins")
     }
+    @@cfg_dir
+  end
+
+  @@cfg_pandoc=nil
+
+  def self.cfg_pandoc
+    return @@cfg_pandoc if @@cfg_pandoc
+    @@cfg_pandoc={}
+    @@cfg_pandoc[:extra_etc]=File.join(self.cfg_dir[:etc],"pandoc_extra_dir")
+    @@cfg_pandoc[:extra_dir]=((File.exist? @@cfg_pandoc[:extra_etc]) ? File.read(@@cfg_pandoc[:extra_etc]) : File.join(self.cfg_dir[:root],"pandoc-extra")).strip
+    @@cfg_pandoc[:config_rb]=File.join(self.cfg_dir[:share],"pandoc","config.rb")
+    @@cfg_pandoc[:extra]=(File.exist? @@cfg_pandoc[:config_rb]) ? Object.class_eval(File.read(@@cfg_pandoc[:config_rb])) : {}
+    @@cfg_pandoc
   end
 
   def self.wait_for_file(filename,wait_loop_number = 20, wait_loop_time = 0.5,verbose=false)
@@ -134,15 +150,15 @@ module DynTask
 
     def make_task
 
-      if @task[:source]
-        #p [:info,@task[:source]]
-        @source=info_file(@task[:source])
-        #p [:source,@source]
-        @basename=@source[:basename]
-        @extname=@source[:extname]
-        @dirname=@source[:dirname]
-        @filename=@source[:filename]
-      end 
+      ## 
+      @source=@task[:source] ? info_file(@task[:source]) : info_file(@task_filename)
+      #p [:info,@task[:source]]
+      
+      #p [:source,@source]
+      @basename=@source[:basename]
+      @extname=@source[:extname]
+      @dirname=@source[:dirname]
+      @filename=@source[:filename]
 
       @target=info_file(@task[:target]) if @task[:target]
        
@@ -151,7 +167,7 @@ module DynTask
       ## This is a rule, if a @task contains both :source and :content
       ## then save the file @task[:source] with this content @task[:content]
       ## This is useful when delegating a next task in some dropbox-like environment: task and source are synchronized!
-      if @task[:content] and @source[:filename]
+      if @task[:content] and @task[:source]
         #p [:content,@source[:filename]]
         File.open(@source[:filename],"w") do |f|
           f << @task[:content]
@@ -255,56 +271,61 @@ module DynTask
     # make pandoc
 
     def make_pandoc
-      cfg_pandoc=nil
 
-      if File.exist? (cfg_pandoc_rbfile=File.join(DynTask.cfg_dir[:share],"pandoc","config.rb"))
-        cfg_pandoc=Object.class_eval(File.read(cfg_pandoc_rbfile))
-      end
+      cfg_pandoc = DynTask.cfg_pandoc[:extra]
 
       format_doc,format_output=@task[:filter].split("2")
-      #p [format_doc.to_s , format_output.to_s]
+      #
+      p [format_doc.to_s , format_output.to_s]
       append_doc= @task[:append_doc] || ""
       cmd_pandoc_options,pandoc_file_output,pandoc_file_input=[],"",nil
       case @task[:filter]
       when "md2odt"
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2odt"] : []
+        cmd_pandoc_options = cfg_pandoc["md2odt"] || []
         pandoc_file_output=@basename+append_doc+".odt"
       when "md2docx"
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2docx"] : ["-s","-S"]
+        cmd_pandoc_options= cfg_pandoc["md2docx"] || ["-s","-S"]
         pandoc_file_output=@basename+append_doc+".docx"
       when "tex2docx"
         pandoc_file_input=@filename
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["tex2docx"] : ["-s"]
+        cmd_pandoc_options= cfg_pandoc["tex2docx"] || ["-s"]
         pandoc_file_output=@basename+append_doc+".docx"
       when "md2beamer"
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2beamer"] : ["-t","beamer"]
+        cmd_pandoc_options= cfg_pandoc["md2beamer"] || ["-t","beamer"]
         pandoc_file_output=@basename+append_doc+".pdf"
       when "md2dzslides"
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2dzslides"] : ["-s","--mathml","-i","-t","dzslides"]
+        cmd_pandoc_options= cfg_pandoc["md2dzslides"] || ["-s","--mathml","-i","-t","dzslides"]
         pandoc_file_output=@basename+append_doc+".html"
       when "md2slidy"
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2slidy"] : ["-s","--webtex","-i","-t","slidy"]
+        cmd_pandoc_options= cfg_pandoc["md2slidy"] || ["-s","--webtex","-i","-t","slidy"]
         pandoc_file_output=@basename+append_doc+".html"  
       when "md2s5"
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2s5"] : ["-s","--self-contained","--webtex","-i","-t","s5"]
+        cmd_pandoc_options= cfg_pandoc["md2s5"] || ["-s","--self-contained","--webtex","-i","-t","s5"]
         pandoc_file_output=@basename+append_doc+".html"
       when "md2revealjs"
-        cmd_pandoc_options=cfg_pandoc ? cfg_pandoc["md2revealjs"] : ["-s","--self-contained","--webtex","-i","-t","revealjs"]
+        cmd_pandoc_options= cfg_pandoc["md2revealjs"] || ["-s","--self-contained","--webtex","-i","-t","revealjs"]
         pandoc_file_output=@basename+append_doc+".html"
       when "md2slideous"
         cmd_pandoc_options=["-s","--mathjax","-i","-t","slideous"]
         pandoc_file_output=@basename+append_doc+".html"
       end
      
-      opts=cmd_pandoc_options+["-o",pandoc_file_output]
+      opts=cmd_pandoc_options #OBSOLETE NOW!: +["-o",pandoc_file_output]
     
-      if pandoc_file_input
+      output=if pandoc_file_input
         opts << pandoc_file_input
         Dyndoc::Converter.pandoc(nil,opts.join(" "))
       else
         @content=@task[:content]
-        #p [:make_pandoc_content, opts.join(" "),@content]
+        #
+        p [:make_pandoc_content, opts.join(" "),@content]
         Dyndoc::Converter.pandoc(@content,opts.join(" "))
+      end
+
+      if pandoc_file_output
+        File.open(pandoc_file_output,"w") do |f|
+          f << output
+        end
       end
   
     end
