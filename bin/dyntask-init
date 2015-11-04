@@ -30,13 +30,16 @@ if ARGV[0] == "pandoc-extra"
 			puts `/usr/bin/env bash -c 'ls #{DynTask.cfg_pandoc[:extra_dir]}'`
 		end
 	when "dir"
-		if ARGV[2] and File.directory? ARGV[2]
+		if options[:force] and options[:rm]
+			FileUtils.rm(DynTask.cfg_pandoc[:extra_etc])
+		elsif ARGV[2] and (File.directory? ARGV[2] or options[:force])
 			File.open(DynTask.cfg_pandoc[:extra_etc],"w") do |f|
 				f << ARGV[2]
 			end
-		else
-			puts "Current pandoc extra installations are located at #{DynTask.cfg_pandoc[:extra_dir]}"
 		end
+		puts "Config file #{DynTask.cfg_pandoc[:extra_etc]} is "+ ( (File.exist? DynTask.cfg_pandoc[:extra_etc]) ? "" : "not ") +"created."
+		puts "Current pandoc extra installations are located at #{DynTask.cfg_pandoc(true)[:extra_dir]}, "+((File.exist? DynTask.cfg_pandoc[:extra_dir]) ? "an " : "a non-") +"existing directory."
+		
 	when "wget"
 		## Stuff!
 		p [:extra_dir,DynTask.cfg_pandoc[:extra_dir]]

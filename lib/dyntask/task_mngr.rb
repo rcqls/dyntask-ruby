@@ -40,8 +40,8 @@ module DynTask
 
   @@cfg_pandoc=nil
 
-  def self.cfg_pandoc
-    return @@cfg_pandoc if @@cfg_pandoc
+  def self.cfg_pandoc(renew=false)
+    return @@cfg_pandoc if @@cfg_pandoc and !renew
     @@cfg_pandoc={}
     @@cfg_pandoc[:extra_etc]=File.join(self.cfg_dir[:etc],"pandoc_extra_dir")
     @@cfg_pandoc[:extra_dir]=((File.exist? @@cfg_pandoc[:extra_etc]) ? File.read(@@cfg_pandoc[:extra_etc]) : File.join(self.cfg_dir[:root],"pandoc-extra")).strip
