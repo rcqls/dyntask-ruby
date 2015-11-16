@@ -218,6 +218,14 @@ module DynTask
       `dyn #{opts} #{@filename}`
     end
 
+    # make dyn-cli
+
+    def make_dyn_cli
+      opts = @task[:options] || ""
+      p [:dyn_cmd_cli,"dyn-cli #{@filename} #{opts} "]
+      `dyn-cli #{@filename} #{opts} `
+    end
+
     # make pdf
 
     def make_pdflatex
