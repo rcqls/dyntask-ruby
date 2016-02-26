@@ -1,7 +1,7 @@
 require 'rubygems/package_task'
 
 pkg_name='dyntask-ruby'
-pkg_version='0.1.1'
+pkg_version='0.1.2'
 
 pkg_files=FileList[
     'lib/dyntask.rb',
