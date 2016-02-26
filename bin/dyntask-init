@@ -5,7 +5,7 @@ require 'pathname'
 require 'dyntask/task_mngr'
 require 'fileutils'
 
-VERSION='0.1.0'
+VERSION='0.1.1'
 
 options = Trollop::options do
   version "dyntask-init version #{VERSION}"
@@ -27,8 +27,8 @@ if ARGV[0] == "pandoc-extra"
 	case ARGV[1]
 	when "ls"
 		if File.directory? DynTask.cfg_pandoc[:extra_dir]
-			puts `/usr/bin/env bash -c 'ls #{DynTask.cfg_pandoc[:extra_dir]}'`
-		end
+		    puts `/usr/bin/env bash -c 'ls #{DynTask.cfg_pandoc[:extra_dir]}'`
+    end
 	when "dir"
 		if options[:force] and options[:rm]
 			FileUtils.rm(DynTask.cfg_pandoc[:extra_etc])
@@ -39,7 +39,7 @@ if ARGV[0] == "pandoc-extra"
 		end
 		puts "Config file #{DynTask.cfg_pandoc[:extra_etc]} is "+ ( (File.exist? DynTask.cfg_pandoc[:extra_etc]) ? "" : "not ") +"created."
 		puts "Current pandoc extra installations are located at #{DynTask.cfg_pandoc(true)[:extra_dir]}, "+((File.exist? DynTask.cfg_pandoc[:extra_dir]) ? "an " : "a non-") +"existing directory."
-		
+
 	when "wget"
 		## Stuff!
 		p [:extra_dir,DynTask.cfg_pandoc[:extra_dir]]
@@ -48,9 +48,9 @@ if ARGV[0] == "pandoc-extra"
       	Dir.chdir DynTask.cfg_pandoc[:extra_dir]
       	version="3.1.0"
       	puts "Installing reveal-js-#{version}"
-      	system("/usr/bin/env bash -c 'wget -O revealjs.tgz https://github.com/hakimel/reveal.js/archive/#{version}.tar.gz && tar xzvf revealjs.tgz && rm revealjs.tgz'") 
+      	system("/usr/bin/env bash -c 'curl -o revealjs.tgz https://github.com/hakimel/reveal.js/archive/#{version}.tar.gz && tar xzvf revealjs.tgz && rm revealjs.tgz'")
       	puts "Installing s5-11"
-      	system("/usr/bin/env bash -c 'wget -O s5.zip http://meyerweb.com/eric/tools/s5/v/1.1/s5-11.zip && mkdir -p s5-tmp && unzip -d s5-tmp s5.zip && mv s5-tmp/ui s5-ui && rm s5.zip && rm -fr s5-tmp'")
+      	system("/usr/bin/env bash -c 'curl -o s5.zip http://meyerweb.com/eric/tools/s5/v/1.1/s5-11.zip && mkdir -p s5-tmp && unzip -d s5-tmp s5.zip && mv s5-tmp/ui s5-ui && rm s5.zip && rm -fr s5-tmp'")
       	Dir.chdir curdir
 
 	end

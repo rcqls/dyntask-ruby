@@ -12,7 +12,7 @@ options = Trollop::options do
 dyntask-server scans the filesystem and executes shell commands when files changes.
 Usage:
   dyntask-server [--restart] '<command type>'
-Comment: 
+Comment:
   when file ~/.dyntask_workdir exists and contains a valid directory name, this becomes the working directory to watch unless -w option is provided at command line.
 Options:
 EOS
@@ -37,7 +37,7 @@ end
 
 # root working directory
 # dyntask_root=nil
-# if options[:workdir] != "" 
+# if options[:workdir] != ""
 #   dyntask_root=options[:workdir].sub("~",ENV["HOME"])
 # else
 #   etc_work_dir=File.join(DynTask.cfg_dir[:etc],"workdir")
@@ -61,7 +61,7 @@ if tasks_to_watch.empty?
 end
 
 files_to_watch=[]
-tasks_to_watch.each do |e| 
+tasks_to_watch.each do |e|
   workdir,tasks=e.split(":")
   workdir=workdir.sub("~",ENV["HOME"])
   tasks.split(",").each do |t|
@@ -91,7 +91,7 @@ begin
   ##p files
   fw = FileWatcher.new(files_to_watch, options[:list], options[:dontwait], options[:spinner])
   task_mngr=DynTask::TaskMngr.new
-  fw.watch(options[:interval]) do |filename, event| 
+  fw.watch(options[:interval]) do |filename, event|
     cmd=nil
     if([:changed,:new].include? event)
       path = Pathname.new(filename).realpath.to_s
