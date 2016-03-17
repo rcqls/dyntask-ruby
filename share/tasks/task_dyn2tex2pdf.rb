@@ -1,7 +1,8 @@
 [
 	{
-		:source=>"%basename%.dyn", 
-		:cmd=> "dyn", 
-		:options=>"-capdf"
+		:workdir => "%workdir%",
+		:source=>"%basename%.dyn",
+		:cmd=> "dyn",
+		:options=>"-cpdf"
 	}
 ]

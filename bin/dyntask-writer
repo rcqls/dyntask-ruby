@@ -26,18 +26,18 @@ ARGV[1..-1].each do |task|
 		key,*value=o.split("=")
 		value=value.join("=")
 		#p [:value,value]
-		
+
 		begin
 			task2[key.to_sym]=Object.class_eval(value)
 		rescue Exception
 			task2[key.to_sym]=value
 		end
 	}
-	[:source,:target].each {|t| 
-		task2[t]=Pathname.new(task2[t]).expand_path.to_s if task2[t] and !(task2[t] =~ /^\%/) 
+	[:source,:target].each {|t|
+		task2[t]=Pathname.new(task2[t]).expand_path.to_s if task2[t] and !(task2[t] =~ /^\%/)
 	}
 	p [:added,task2]
-	DynTask.add_task(task2)
+	id=DynTask.add_task(task2)
 end
- 
+
 DynTask.save_tasks(task_basename)

@@ -11,109 +11,42 @@ options = Trollop::options do
   banner <<-EOS
 dyntask-server scans the filesystem and executes shell commands when files changes.
 Usage:
-  dyntask-server [--restart] '<command type>'
-Comment:
-  when file ~/.dyntask_workdir exists and contains a valid directory name, this becomes the working directory to watch unless -w option is provided at command line.
+   dyntask-server
 Options:
 EOS
   opt :dontwait, "Do not wait for filesystem updates before running", :short => 'd', :type => :boolean, :default => false
-  opt :restart, "Restart process when filesystem is updated", :short => 'r', :type => :boolean, :default => false
+  #opt :restart, "Restart process when filesystem is updated", :short => 'r', :type => :boolean, :default => false
   opt :list, "Print name of files being watched"
   opt :interval, "Interval to scan filesystem.", :short => 'i', :type => :float, :default => 0.5
   opt :spinner, "Show an ascii spinner", :short => 's', :type => :boolean, :default => false
 end
 
-Trollop::die Trollop::educate if(ARGV.size == 0)
+##Trollop::die Trollop::educate if(ARGV.size == 0)
 
-tasks_to_watch = []
-ARGV[0..-1].each do |a|
-  if !(a.include? ",") and File.exists? (etc_tasks=File.join(DynTask.cfg_dir[:etc],"tasks",a))
-    tasks_to_watch += File.read(etc_tasks).strip.split(/\s+/)
-  else
-    tasks_to_watch << a
-  end
-end
-
-
-# root working directory
-# dyntask_root=nil
-# if options[:workdir] != ""
-#   dyntask_root=options[:workdir].sub("~",ENV["HOME"])
-# else
-#   etc_work_dir=File.join(DynTask.cfg_dir[:etc],"workdir")
-#   dyntask_root=File.read(etc_work_dir).strip.sub("~",ENV["HOME"]) if File.exists? etc_work_dir
-# end
-
-# unless dyntask_root
-#   puts "Working directory unset!\n Use: option -w with dyntask-server\n  or\n Launch: dyntask-init -w <WORKING DIRECTORY> to set default working directory!"
-#   exit
-# end
-# unless File.exists? dyntask_root
-#   puts "Stop: #{dyntask_root} is not a directory!"
-#   exit
-# end
-
-#puts "Root directory is #{dyntask_root}"
-
-if tasks_to_watch.empty?
-  puts "Stop: no tasks to serve!\n Launch: dyntask-init <NAME> <WORKDIR>:<LIST OF COMMA SEPARATED TASKS> to set of tasks to be called by <NAME>!"
-  exit
-end
+tasks_to_watch = DynTask::TaskMngr::TASKS
 
 files_to_watch=[]
+rundir=DynTask.cfg_dir[:run]
 tasks_to_watch.each do |e|
-  workdir,tasks=e.split(":")
-  workdir=workdir.sub("~",ENV["HOME"])
-  tasks.split(",").each do |t|
-    files_to_watch << File.join(workdir,"**/*" +DynTask::TaskMngr::TASK_EXT+t) #if DynTask::TaskMngr::TASKS.include? file
-  end
+  files_to_watch << File.join(rundir,"*" +DynTask::TaskMngr::TASK_EXT+e) #if DynTask::TaskMngr::TASKS.include? file
 end
 
 files_to_watch.uniq!
 
 puts "Tasks watched: #{files_to_watch}"
 
-def restart(child_pid, env, cmd)
-  Process.kill(9,child_pid)
-  Process.wait(child_pid)
-rescue Errno::ESRCH
-  # already killed
-ensure
-  child_pid = Process.spawn({}, cmd)
-end
-
-if(options[:restart])
-  rd, wr = IO.pipe
-  child_pid = nil
-end
-
 begin
+
   ##p files
   fw = FileWatcher.new(files_to_watch, options[:list], options[:dontwait], options[:spinner])
-  task_mngr=DynTask::TaskMngr.new
+
   fw.watch(options[:interval]) do |filename, event|
-    cmd=nil
     if([:changed,:new].include? event)
       path = Pathname.new(filename).realpath.to_s
-      cmd = "dyntask-reader "+path
-
-      if(options[:restart])
-        if(child_pid == nil)
-          child_pid = Process.spawn({}, cmd)
-        else
-          child_id = restart(child_pid, {}, cmd)
-        end
-      else
-        begin
-          p "cmd: <#{cmd}>"
-          pid = Process.spawn({}, cmd)
-          Process.wait()
-        rescue SystemExit, Interrupt
-          exit(0)
-        end
-      end
+      DynTask.read_tasks path
     end
   end
+
 rescue SystemExit, Interrupt
   fw.finalize
 end

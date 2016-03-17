@@ -21,9 +21,14 @@ EOS
   opt :rm, "remove an existing file", :type => :boolean, :default => false
 end
 
-Trollop::die Trollop::educate if(ARGV.size == 0)
+## Trollop::die Trollop::educate if(ARGV.size == 0)
 
-if ARGV[0] == "pandoc-extra"
+case ARGV[0] || "first"
+when "first"
+  FileUtils.mkdir_p DynTask.cfg_dir[:root] unless File.directory? DynTask.cfg_dir[:root]
+  FileUtils.mkdir_p DynTask.cfg_dir[:run] unless File.directory? DynTask.cfg_dir[:run]
+  FileUtils.cp_r File.expand_path('../../share',__FILE__),DynTask.cfg_dir[:share] unless File.directory? File.join(DynTask.cfg_dir[:share])
+when "pandoc-extra"
 	case ARGV[1]
 	when "ls"
 		if File.directory? DynTask.cfg_pandoc[:extra_dir]
@@ -56,35 +61,3 @@ if ARGV[0] == "pandoc-extra"
 	end
 	exit
 end
-
-
-
-if ARGV.size == 1 and ARGV[0]=="ls"
-	Dir[File.join(DynTask.cfg_dir[:etc],"tasks","**/*")].each do |f|
-		puts "#{File.basename(f)}: #{File.read(f)}"
-	end
-	exit
-end
-
-etc_tasks=File.join(DynTask.cfg_dir[:etc],"tasks",ARGV[0])
-
-if ARGV.size==1
-	if options[:rm] and options[:force]
-		require 'fileutils'
-		FileUtils.rm etc_tasks
-	end
-else
-	if File.exists? etc_tasks and !options[:force]
-		puts "Error: file #{etc_tasks} already exist. Use --force or -f to modify this file!"
-		exit
-	else
-		require 'fileutils'
-		FileUtils.mkdir_p File.dirname(etc_tasks)
-		dyntask_tasks=ARGV[1..-1].join(" ")
-		File.open(etc_tasks,"w") do |f|
-			f << dyntask_tasks
-		end
-	end
-end
-
-puts "#{etc_tasks} contains: #{File.read(etc_tasks)}" if File.exists? etc_tasks

@@ -2,19 +2,25 @@
 require 'dyndoc-software'
 require 'dyndoc-converter'
 require "fileutils"
+require 'pathname'
 
 module DynTask
 
   @@task_mngr=nil
+  @@task_cpt=-1
 
-  def self.add_task(task)
-    @@task_mngr ||= DynTask::TaskMngr.new
-    @@task_mngr.add_task(task)
+  def self.inc_task_cpt
+    ((@@task_cpt += 1) == 9999 ? (@@task_cpt = 0) : @@task_cpt)
   end
 
-  def self.save_tasks(task_basename)
+  def self.add_task(task,id=nil) #id.nil? => new task
+    @@task_mngr ||= DynTask::TaskMngr.new
+    @@task_mngr.add_task(task,id)
+  end
+
+  def self.save_tasks(task_basename,task_dirname=nil)
     return unless @@task_mngr
-    @@task_mngr.save_tasks(task_basename)
+    @@task_mngr.save_tasks(task_basename,task_dirname)
   end
 
   def self.read_tasks(task_filename)
@@ -28,14 +34,46 @@ module DynTask
   def self.cfg_dir
     return @@cfg_dir if @@cfg_dir
     root=File.join(ENV["HOME"],".dyntask")
+    ## the idea is that any path has to be relative to some system root
+    sys_root=(ENV["HOMEDRIVE"]||"")+"/" # local mode
     @@cfg_dir={
       :root => root,
       :etc => File.join(root,"etc"),
       :share => File.join(root,"share"),
       :tasks => File.join(root,"share","tasks"),
-      :plugins => File.join(root,"share","plugins")
+      :plugins => File.join(root,"share","plugins"),
+      :run => File.join(root,"run") # default folder to watch. In a perfect world (this is my goal), only this folder to watch!
     }
+    ## File containing the sys_root_path (used in atom package)
+    @@cfg_dir[:sys_root_path_cfg]=File.join(@@cfg_dir[:etc],"sys_root_path")
+    self.update_sys_root(sys_root)
     @@cfg_dir
+  end
+
+  ## to be able to change sys_root path depending on local or remote mode
+  def self.update_sys_root(path)
+    @@cfg_dir[:sys_root]=path
+    ## save sys_root_path to some config file (used in atom package)
+    FileUtils.mkdir_p File.dirname(@@cfg_dir[:sys_root_path_cfg])
+    File.open(@@cfg_dir[:sys_root_path_cfg],"w") do |f|
+      f << @@cfg_dir[:sys_root]
+    end
+  end
+
+  def self.sys_root_path(rel_path)
+    File.expand_path File.join(self.cfg_dir[:sys_root],rel_path)
+  end
+
+  def self.relative_path_from_sys_root(abs_path)
+    begin
+      #p abs_path
+      #p self.cfg_dir[:sys_root]
+      ap=Pathname.new(abs_path).realpath
+      #p ap
+      ap.relative_path_from(Pathname.new(self.cfg_dir[:sys_root])).to_s
+    rescue
+      nil
+    end
   end
 
   @@cfg_pandoc=nil
@@ -64,7 +102,7 @@ module DynTask
   class TaskMngr
 
     # TODO: to put outside to be extended by users!
-    TASKS=["pdflatex","pandoc","png","dyn","sh"]
+    TASKS=["pdflatex","pandoc","png","dyn","sh","dyn_cli"]
     TASK_EXT=".task_"
 
     def initialize
@@ -72,7 +110,7 @@ module DynTask
     end
 
      def init_tasks
-      @tasks=[]
+      @tasks={}
     end
 
     ## Comment on writing task:
@@ -81,60 +119,80 @@ module DynTask
     ## However, :source and :target are recommanded keynames for describing source and target filename
 
     ## possibly add condition to check before applying command+options
-    def add_task(task)
-      @tasks << task
+    def add_task(task,id=nil)
+      task_cpt=id || DynTask.inc_task_cpt
+      @tasks[task_cpt] = [] unless @tasks[task_cpt]
+      @tasks[task_cpt] << task
+      task_cpt #id of the task
     end
 
-    def save_tasks(task_basename)
-      task_filename=task_basename+TASK_EXT+@tasks[0][:cmd].to_s
-      File.open(task_filename,"w") do |f|
-        f << @tasks.inspect
-      end 
+    ##
+    def save_tasks(id,task_basename,task_dirname=nil)
+      task_dirname=DynTask.cfg_dir[:run] unless task_dirname
+      task_dirname=File.expand_path task_dirname
+      FileUtils.mkdir_p task_dirname unless File.directory? task_dirname
+      if (tasks_to_save=@tasks[id])
+        tasks_to_save[0][:id]=id
+        task_filename=File.join(task_dirname,("%04d" % id)+"_"+task_basename+TASK_EXT+tasks_to_save[0][:cmd].to_s)
+        File.open(task_filename,"w") do |f|
+          f << tasks_to_save.inspect
+        end
+      else
+        puts "DynTask WARNING: Nothing to save!"
+      end
     end
 
     def write_tasks(task_basename,tasks)
       @tasks=tasks
-      save_tasks(task_basename)
+      id=DynTask.inc_task_cpt
+      save_tasks(id,task_basename)
     end
 
     ## maybe to maintain only one task, remove current task when the new one is created
     def read_tasks(task_filename)
       @task_filename=task_filename
-      @workdir=File.dirname(@task_filename)
-      @tasks=Object.class_eval(File.read(@task_filename))
+      @tasks=Object.class_eval(File.read(@task_filename).force_encoding("utf-8"))
       ##p @tasks
       if @tasks.length>=1
         @task=@tasks.shift #first task to deal with
         ##p @task
-        make_task
-        if @tasks.length>=1
-          dirname=File.dirname(task_filename)
-          basename=File.basename(task_filename,".*")
-          task_basename=File.join(dirname,basename)
-          save_tasks(task_basename)
+        if @task[:workdir]
+          # if workdir is specified inside the first task (almost required now)
+          @workdir = @task[:workdir]
+          # workdir is always relative from sys_root which could differ depending on the computer (or vm)
+          @workdir = DynTask.sys_root_path(@workdir)
+          if File.exist? @workdir
+
+            make_task
+            if @tasks.length>=1
+              dirname=File.dirname(task_filename)
+              basename=File.basename(task_filename,".*")
+              task_basename=File.join(dirname,basename)
+              save_tasks(@task[:id],task_basename) # same id since it is a chaining (TO CHECK: when remote action maybe prefer uuid instead of counter to gnerate id)
+            end
+            # remove since it is executed!
+            FileUtils.rm(task_filename)
+          end
         end
-        # remove since it is executed!
-        FileUtils.rm(task_filename)
       end
     end
 
     ## if option to not remove taskfiles, this is a clean!
-    def task_clean_taskfiles(task_filename)
-      dirname=File.dirname(task_filename)
-      basename=File.basename(task_filename,TASK_EXT+"*")
-      
-      Dir[File.join(dirname,basename+TASK_EXT+"*")].each do |f|
-        FileUtils.rm(f)
-      end
-    end
+    # def task_clean_taskfiles(task_filename)
+    #   dirname=File.dirname(task_filename)
+    #   basename=File.basename(task_filename,TASK_EXT+"*")
+    #
+    #   Dir[File.join(dirname,basename+TASK_EXT+"*")].each do |f|
+    #     FileUtils.rm(f)
+    #   end
+    # end
 
     def load_user_task_plugins
-      Dir[File.join(DynTask.cfg_dir[:plugins],"*.rb")].each {|lib| require lib} if File.exists? DynTask.cfg_dir[:plugins] 
+      Dir[File.join(DynTask.cfg_dir[:plugins],"*.rb")].each {|lib| require lib} if File.exists? DynTask.cfg_dir[:plugins]
     end
 
     def info_file(filename)
       return {} unless filename
-      filename=File.join(@workdir,filename[1..-1]) if filename =~ /^\%/
 
       ##p [:info_file,filename]
 
@@ -150,10 +208,10 @@ module DynTask
 
     def make_task
 
-      ## 
-      @source=@task[:source] ? info_file(@task[:source]) : info_file(@task_filename)
+      ##
+      @source=info_file(DynTask.sys_root_path(@task[:source]))
       #p [:info,@task[:source]]
-      
+
       #p [:source,@source]
       @basename=@source[:basename]
       @extname=@source[:extname]
@@ -161,7 +219,7 @@ module DynTask
       @filename=@source[:filename]
 
       @target=info_file(@task[:target]) if @task[:target]
-       
+
       cd_new
 
       ## This is a rule, if a @task contains both :source and :content
@@ -190,7 +248,7 @@ module DynTask
       # end
 
       cd_old
-        
+
     end
 
     def cd_new
@@ -248,28 +306,28 @@ module DynTask
 
     def make_pdflatex_pass(echo_mode=false)
       unless File.exists? @basename+".tex"
-        msg="No pdflatex #{@basename} in #{@dirname} since file does not exist!"
+        msg="No pdflatex #{@basename} in #{@workdir} since file does not exist!"
         print "\n==> "+msg
       end
       if File.read(@basename+".tex").empty?
-        msg="No pdflatex #{@basename} in #{@dirname} since empty file!"
+        msg="No pdflatex #{@basename} in #{@workdir} since empty file!"
         print "\n==> "+msg
         ###$dyn_logger.write("ERROR pdflatex: "+msg+"\n") unless Dyndoc.cfg_dyn[:dyndoc_mode]==:normal
         return ""
       end
-      print "\n==> #{Dyndoc.pdflatex} #{@basename} in #{@dirname}"
+      print "\n==> #{Dyndoc.pdflatex} #{@basename} in #{@workdir}"
 
       out=`#{Dyndoc.pdflatex} -halt-on-error -file-line-error -interaction=nonstopmode #{@basename}`
-      out=out.b if RUBY_VERSION >= "1.9" #because out is not necessarily utf8 encoded  
+      out=out.b if RUBY_VERSION >= "1.9" #because out is not necessarily utf8 encoded
       out=out.split("\n")
       puts out if echo_mode
       if out[-2].include? "Fatal error"
         #if Dyndoc.cfg_dyn[:dyndoc_mode]==:normal
         #  print " -> NOT OKAY!!!\n==> "
         #  puts out[-4...-1]
-        #  raise SystemExit 
+        #  raise SystemExit
         #end
-      else 
+      else
         print " -> OKAY!!!\n"
         ###@cfg[:created_docs] << @basename+".pdf" #( @dirname.empty? ? "" : @dirname+"/" ) + @basename+".pdf"
       end
@@ -305,7 +363,7 @@ module DynTask
         pandoc_file_output=@basename+append_doc+".html"
       when "md2slidy"
         cmd_pandoc_options= cfg_pandoc["md2slidy"] || ["-s","--webtex","-i","-t","slidy"]
-        pandoc_file_output=@basename+append_doc+".html"  
+        pandoc_file_output=@basename+append_doc+".html"
       when "md2s5"
         cmd_pandoc_options= cfg_pandoc["md2s5"] || ["-s","--self-contained","--webtex","-i","-t","s5"]
         pandoc_file_output=@basename+append_doc+".html"
@@ -316,9 +374,9 @@ module DynTask
         cmd_pandoc_options=["-s","--mathjax","-i","-t","slideous"]
         pandoc_file_output=@basename+append_doc+".html"
       end
-     
+
       opts=cmd_pandoc_options #OBSOLETE NOW!: +["-o",pandoc_file_output]
-    
+
       output=if pandoc_file_input
         opts << pandoc_file_input
         Dyndoc::Converter.pandoc(nil,opts.join(" "))
@@ -334,7 +392,7 @@ module DynTask
           f << output
         end
       end
-  
+
     end
 
 
@@ -345,7 +403,7 @@ module DynTask
       make_dvipng
     end
 
-    # make latex and dvipng 
+    # make latex and dvipng
 
     def make_dvipng
         system "latex #{@basename}.tex"
@@ -355,10 +413,10 @@ module DynTask
     end
 
     # make ttm
-    
+
     def make_ttm
 #puts "make_ttm:begin"
-      Dyndoc::Converter.ttm(File.read(@task[:filename]))
+      Dyndoc::Converter.ttm(File.read(@task[:filename]).force_encoding("utf-8"))
     end
 
   end
