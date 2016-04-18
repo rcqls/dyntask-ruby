@@ -1,7 +1,7 @@
 require 'rubygems/package_task'
 
 pkg_name='dyntask-ruby'
-pkg_version='0.3.3'
+pkg_version='0.4.0'
 
 pkg_files=FileList[
     'lib/dyntask.rb',
@@ -24,7 +24,7 @@ spec = Gem::Specification.new do |s|
     # end
     s.files = pkg_files.to_a
     s.bindir = "bin"
-    s.executables = ["dyntask-server","dyntask-reader","dyntask-writer","dyntask-init"]
+    s.executables = ["dyntask-server","dyntask-init"] ##,"dyntask-reader","dyntask-writer"]
     s.description = <<-EOF
   Managing dyndoc tasks.
   EOF

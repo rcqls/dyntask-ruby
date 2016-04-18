@@ -1,0 +1,6 @@
+[ ] dyntask with several run directories (for remote task)
+[ ] think about what is a remote config (root + run + project)?
+[ ] Actually, a dyntask-server used remotely has to have independent structure
+
+[ ] dyn_run task helps to delegate a task, i.e., copy remotely a dyn_task to the run folder of the server.
+[ ] It could also check if the content is ready to be executed before delegating the task

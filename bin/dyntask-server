@@ -23,12 +23,17 @@ end
 
 ##Trollop::die Trollop::educate if(ARGV.size == 0)
 
-tasks_to_watch = DynTask::TaskMngr::TASKS
+rundirs=[DynTask.cfg_dir[:run]]
+etc_rundirs=File.join( DynTask.cfg_dir[:etc],"rundirs")
+rundirs += File.read(etc_rundirs).strip.split(",").map{|d| d.strip} if File.exists? etc_rundirs
+
+##tasks_to_watch = DynTask::TaskMngr::TASKS
 
 files_to_watch=[]
-rundir=DynTask.cfg_dir[:run]
-tasks_to_watch.each do |e|
-  files_to_watch << File.join(rundir,"*" +DynTask::TaskMngr::TASK_EXT+e) #if DynTask::TaskMngr::TASKS.include? file
+rundirs.each do |rundir|
+  ##tasks_to_watch.each do |e|
+    files_to_watch << File.join(rundir,"*" +DynTask::TaskMngr::TASK_EXT+"*" ) ##+e) #if DynTask::TaskMngr::TASKS.include? file
+  ##end
 end
 
 files_to_watch.uniq!

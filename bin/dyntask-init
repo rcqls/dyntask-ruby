@@ -12,9 +12,9 @@ options = Trollop::options do
   banner <<-EOS
 dyntask-init executes the dynamic task file.
 Usage:
-   dyntask-init [--force] '<name>' '<working_dir>:<list_of_comma_separated_tasks>' ['<working_dir_2>:<list_of_comma_separated_tasks_2>' ...]
-   dyntask-init '<name>'
-   dyntask-init --force --rm '<name>'
+  dyntask-init [first] (for a initial setup)
+  dyntask-init ls or dyntask-init add|rm <working_dir> (to list, add or remove working directory)
+  dyntask-init pandoc-extra ls|dir|wget
 Options:
 EOS
   opt :force, "force is used to rewrite on an existing file", :short => 'f', :type => :boolean, :default => false
@@ -28,6 +28,42 @@ when "first"
   FileUtils.mkdir_p DynTask.cfg_dir[:root] unless File.directory? DynTask.cfg_dir[:root]
   FileUtils.mkdir_p DynTask.cfg_dir[:run] unless File.directory? DynTask.cfg_dir[:run]
   FileUtils.cp_r File.expand_path('../../share',__FILE__),DynTask.cfg_dir[:share] unless File.directory? File.join(DynTask.cfg_dir[:share])
+when "rundir","run"
+  rundirs=[]
+  etc_rundirs=File.join( DynTask.cfg_dir[:etc],"rundirs")
+  rundirs += File.read(etc_rundirs).strip.split(",").map{|d| d.strip} if File.exists? etc_rundirs
+  etc_rundirs_to_update=false
+  case ARGV[1]
+  when "ls"
+    puts "Additional directories watched: #{rundirs.empty? ? 'none' : rundirs.join(',')}"
+  when "add"
+    newdir=File.expand_path ARGV[2]
+    if File.directory? newdir and !rundirs.include? newdir
+      rundirs << newdir
+      puts "DynTask Server needs to be restarted to apply this change!"
+      etc_rundirs_to_update=true
+    else
+      "Nothing to do!"
+    end
+  when "rm"
+    newdir=File.expand_path ARGV[2]
+    if File.directory? newdir and rundirs.include? newdir
+      rundirs -= [newdir]
+      puts "DynTask Server needs to be restarted to apply this change!"
+      etc_rundirs_to_update=true
+    else
+      "Nothing to do!"
+    end
+  end
+  if etc_rundirs_to_update
+    if rundirs.empty?
+      File.unlink etc_rundirs
+    else
+      File.open(etc_rundirs,"w") do |f|
+        f << rundirs.join(",")
+      end
+    end
+  end
 when "pandoc-extra"
 	case ARGV[1]
 	when "ls"

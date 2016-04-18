@@ -1,6 +1,6 @@
 # DynTask
 
-First of all, inspiration DynTask comes from the filewatcher project. The goal is a bit different since the goal is to provide a very basic system to manage chainable tasks.
+First of all, DynTask inspiration comes from the filewatcher project. The goal is a bit different since the goal is to provide a very basic system to manage chainable tasks.
 
 
 ## Kinds of task
