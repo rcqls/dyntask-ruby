@@ -110,7 +110,7 @@ module DynTask
     end
 
      def init_tasks
-      @tasks={}
+      @task_ids={}
     end
 
     ## Comment on writing task:
@@ -121,8 +121,8 @@ module DynTask
     ## possibly add condition to check before applying command+options
     def add_task(task,id=nil)
       task_cpt=id || DynTask.inc_task_cpt
-      @tasks[task_cpt] = [] unless @tasks[task_cpt]
-      @tasks[task_cpt] << task
+      @task_ids[task_cpt] = [] unless @task_ids[task_cpt]
+      @task_ids[task_cpt] << task
       task_cpt #id of the task
     end
 
@@ -131,8 +131,10 @@ module DynTask
       task_dirname=DynTask.cfg_dir[:run] unless task_dirname
       task_dirname=File.expand_path task_dirname
       FileUtils.mkdir_p task_dirname unless File.directory? task_dirname
-      if (tasks_to_save=@tasks[id])
+      if (tasks_to_save=@task_ids[id])
+        ## delegate id
         tasks_to_save[0][:id]=id
+        ## write next tasks to file
         task_filename=File.join(task_dirname,("%04d" % id)+"_"+task_basename+TASK_EXT+tasks_to_save[0][:cmd].to_s)
         File.open(task_filename,"w") do |f|
           f << tasks_to_save.inspect
@@ -148,6 +150,13 @@ module DynTask
       save_tasks(id,task_basename)
     end
 
+    ## workdir is now specified which is relative to some root directory
+    ## Two modes:
+    ## 1) centralized mode (defaul): ~/.dyntask/run folder watched with root specified in ~/.dyntask/etc/sys_root_path
+    ## Nice when used everywhere in your local computer
+    ## 2) decentralized mode: every watched directory is a working directory
+    ## Nice when certain tasks can be performed remotely.
+
     ## maybe to maintain only one task, remove current task when the new one is created
     def read_tasks(task_filename)
       @task_filename=task_filename
@@ -159,8 +168,14 @@ module DynTask
         if @task[:workdir]
           # if workdir is specified inside the first task (almost required now)
           @workdir = @task[:workdir]
-          # workdir is always relative from sys_root which could differ depending on the computer (or vm)
-          @workdir = DynTask.sys_root_path(@workdir)
+          dirname_next_task=nil #means default mode (from sys_root_path)
+          if @workdir == :current #mode current
+            @workdir=File.dirname(File.expand_path(@task_filename))
+            dirname_next_task=@workdir
+          else #mode
+            # workdir is always relative from sys_root which could differ depending on the computer (or vm)
+            @workdir = DynTask.sys_root_path(@workdir)
+          end
           if File.exist? @workdir
 
             make_task
@@ -168,7 +183,7 @@ module DynTask
               dirname=File.dirname(task_filename)
               basename=File.basename(task_filename,".*")
               task_basename=File.join(dirname,basename)
-              save_tasks(@task[:id],task_basename) # same id since it is a chaining (TO CHECK: when remote action maybe prefer uuid instead of counter to gnerate id)
+              save_tasks(@task[:id],task_basename,dirname_next_task) # same id since it is a chaining (TO CHECK: when remote action maybe prefer uuid instead of counter to gnerate id)
             end
             # remove since it is executed!
             FileUtils.rm(task_filename)
