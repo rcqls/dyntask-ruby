@@ -37,18 +37,22 @@ when "rundir","run"
   when "ls"
     puts "Additional directories watched: #{rundirs.empty? ? 'none' : rundirs.join(',')}"
   when "add"
-    newdir=File.expand_path ARGV[2]
-    if File.directory? newdir and !rundirs.include? newdir
-      rundirs << newdir
+    subdir = ARGV[2][-1,1] == File::Separator
+    newdir = File.expand_path ARGV[2]
+    newrundir=subdir ? File.join(newdir,"") : newdir
+    if File.directory? newdir  and !rundirs.include? newrundir
+      rundirs << newrundir
       puts "DynTask Server needs to be restarted to apply this change!"
       etc_rundirs_to_update=true
     else
       "Nothing to do!"
     end
   when "rm"
-    newdir=File.expand_path ARGV[2]
-    if File.directory? newdir and rundirs.include? newdir
-      rundirs -= [newdir]
+    subdir = ARGV[2][-1,1] == File::Separator
+    newdir = File.expand_path ARGV[2]
+    newrundir=subdir ? File.join(newdir,"") : newdir
+    if File.directory? newdir  and rundirs.include? newrundir
+      rundirs -= [newrundir]
       puts "DynTask Server needs to be restarted to apply this change!"
       etc_rundirs_to_update=true
     else

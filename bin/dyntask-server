@@ -32,7 +32,8 @@ rundirs += File.read(etc_rundirs).strip.split(",").map{|d| d.strip} if File.exis
 files_to_watch=[]
 rundirs.each do |rundir|
   ##tasks_to_watch.each do |e|
-    files_to_watch << File.join(rundir,"*" +DynTask::TaskMngr::TASK_EXT+"*" ) ##+e) #if DynTask::TaskMngr::TASKS.include? file
+  watchdir = rundir[-1,1] == File::Separator ? [rundir[0...-1],"**"] : rundir
+  files_to_watch << File.join(watchdir,"*" +DynTask::TaskMngr::TASK_EXT+"*" ) ##+e) #if DynTask::TaskMngr::TASKS.include? file
   ##end
 end
 
